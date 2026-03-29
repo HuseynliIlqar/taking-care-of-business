@@ -88,38 +88,40 @@ jobs:
   # JOB 3 — Deploy to AWS EC2
   # ─────────────────────────────────────────────
   deploy:
-    name: Deploy to AWS EC2
+    name: Deploy to DigitalOcean
     runs-on: ubuntu-latest
     needs: docker-build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Deploy via SSH (git pull + build + run)
+      - name: Deploy via SSH password
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          password: ${{ secrets.DO_PASSWORD }}
           command_timeout: 30m
           script: |
-            # Install Java + Maven once if not present
+            # Install Java + Maven + Git once if not present
             if ! command -v mvn &> /dev/null; then
-              sudo apt-get update -qq
-              sudo apt-get install -y maven
+              apt-get update -qq
+              apt-get install -y docker.io docker-compose maven git
+              systemctl enable docker
+              systemctl start docker
             fi
 
             # Clone repo if not exists, otherwise pull latest
-            if [ -d "/home/ubuntu/app/.git" ]; then
-              cd /home/ubuntu/app
+            if [ -d "/root/app/.git" ]; then
+              cd /root/app
               git pull origin main
             else
-              git clone https://github.com/HuseynliIlqar/taking-care-of-business.git /home/ubuntu/app
-              cd /home/ubuntu/app
+              git clone https://github.com/HuseynliIlqar/taking-care-of-business.git /root/app
+              cd /root/app
             fi
 
-            cd /home/ubuntu/app/travel-booking
+            cd /root/app/travel-booking
 
-            # Build JARs on EC2
+            # Build JARs
             mvn clean package -DskipTests -q
 
             # Stop existing containers
