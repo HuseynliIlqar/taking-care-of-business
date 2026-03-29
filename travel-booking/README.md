@@ -5,6 +5,21 @@ A microservice-based travel booking application using **Netflix Eureka** for ser
 > **API istifadə təlimatı, düzgün input dəyərləri və nümunə cavablar üçün:**
 > **[API_DOCS.md](./API_DOCS.md)** — bütün endpoint-lər, mövcud şəhər/marşrut siyahısı və sınaq qaydası burada ətraflı izah edilib.
 
+## Live Demo (DigitalOcean)
+
+| Service | URL |
+|---------|-----|
+| Eureka Dashboard | http://64.226.68.244:8761 |
+| API Gateway | http://64.226.68.244:8080 |
+| Flight Service | http://64.226.68.244:8081/flights |
+| Hotel Service | http://64.226.68.244:8082/hotels |
+| Car Rental Service | http://64.226.68.244:8083/cars |
+| Swagger — Flight | http://64.226.68.244:8081/swagger-ui/index.html |
+| Swagger — Hotel | http://64.226.68.244:8082/swagger-ui/index.html |
+| Swagger — Car Rental | http://64.226.68.244:8083/swagger-ui/index.html |
+
+> No credentials required — all endpoints are publicly accessible.
+
 ## Architecture
 
 ```
@@ -185,6 +200,12 @@ Car types: `Economy`, `Compact`, `Sedan`, `SUV`, `Luxury`, `Electric`
 > GET http://localhost:8080/cars/search?location=Prague
 > GET http://localhost:8080/cars/search?location=London
 > ```
+
+## Docker Base Image Note
+
+All Dockerfiles use `eclipse-temurin:11-jre-jammy` instead of `openjdk:11-jre-slim`.
+`openjdk:11-jre-slim` was removed from Docker Hub; `eclipse-temurin` is its official successor
+maintained by the Adoptium project and is the recommended replacement.
 
 ## CI/CD Pipeline
 

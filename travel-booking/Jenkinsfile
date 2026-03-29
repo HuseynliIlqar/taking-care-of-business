@@ -119,11 +119,11 @@ pipeline {
             steps {
                 script {
                     def services = [
-                        [name: 'discovery-service', app: "${HEROKU_APP_PREFIX}-discovery"],
-                        [name: 'api-gateway',        app: "${HEROKU_APP_PREFIX}-gateway"],
-                        [name: 'flight-service',     app: "${HEROKU_APP_PREFIX}-flight"],
-                        [name: 'hotel-service',      app: "${HEROKU_APP_PREFIX}-hotel"],
-                        [name: 'car-rental-service', app: "${HEROKU_APP_PREFIX}-carrental"]
+                        [name: 'discovery-service', app: 'discoveryservice'],
+                        [name: 'api-gateway',        app: 'api-gateway'],
+                        [name: 'flight-service',     app: 'flight-service'],
+                        [name: 'hotel-service',      app: 'hotel-service'],
+                        [name: 'car-rental-service', app: 'car-rental-service']
                     ]
                     services.each { svc ->
                         sh """
