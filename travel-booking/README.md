@@ -7,6 +7,10 @@ A microservice-based travel booking application using **Netflix Eureka** for ser
 
 ## Live Demo (DigitalOcean)
 
+All services are deployed and publicly accessible — no credentials required.
+
+### Service Endpoints
+
 | Service | URL |
 |---------|-----|
 | Eureka Dashboard | http://64.226.68.244:8761 |
@@ -14,11 +18,18 @@ A microservice-based travel booking application using **Netflix Eureka** for ser
 | Flight Service | http://64.226.68.244:8081/flights |
 | Hotel Service | http://64.226.68.244:8082/hotels |
 | Car Rental Service | http://64.226.68.244:8083/cars |
-| Swagger — Flight | http://64.226.68.244:8081/swagger-ui/index.html |
-| Swagger — Hotel | http://64.226.68.244:8082/swagger-ui/index.html |
-| Swagger — Car Rental | http://64.226.68.244:8083/swagger-ui/index.html |
 
-> No credentials required — all endpoints are publicly accessible.
+### Swagger UI (Interactive API Docs)
+
+Each domain service has its own Swagger UI. Open in browser to explore and test all endpoints interactively:
+
+| Service | Swagger URL |
+|---------|------------|
+| Flight Service | http://64.226.68.244:8081/swagger-ui/index.html |
+| Hotel Service | http://64.226.68.244:8082/swagger-ui/index.html |
+| Car Rental Service | http://64.226.68.244:8083/swagger-ui/index.html |
+
+> **Note:** The Eureka dashboard may show internal Docker hostnames (e.g. `d43ce9e8d88c:api-gateway:8080`) — this is expected Docker behaviour. Use the public IP URLs above to access the services.
 
 ## Architecture
 
