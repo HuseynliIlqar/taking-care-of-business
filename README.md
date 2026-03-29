@@ -1,190 +1,131 @@
-# Travel Booking Microservices — CI/CD Pipeline
+# Welcome to Taking Care Of Business
+***
 
-A microservice-based travel booking application with a full CI/CD pipeline using Docker, Jenkins, Travis CI, JaCoCo, and Heroku.
 
----
+## Task
+Implement a CI/CD pipeline for a microservice-based travel booking application built with Spring Boot and Spring Cloud. The challenge is to automate the full software delivery lifecycle — from building and testing to containerisation and cloud deployment — across 5 independent microservices simultaneously.
 
-## Architecture
+The pipeline must:
+- Build Docker images for each of the 5 microservices
+- Run unit tests (JUnit) for every microservice automatically on every commit
+- Generate code coverage reports using JaCoCo with a minimum of 70% line coverage per module
+- Upload coverage results to CodeCov
+- Deploy the full application to a cloud server (DigitalOcean) on every push to main
+- Support Jenkins (Jenkinsfile) and Travis CI (.travis.yml) as CI/CD tools
+- Orchestrate all services with Docker Compose in both local and production environments
 
-```
-travel-booking/
-├── discovery-service/     # Eureka Server — service registry (port 8761)
-├── api-gateway/           # Spring Cloud Gateway — single entry point (port 8080)
-├── flight-service/        # Flight management & booking (port 8081)
-├── hotel-service/         # Hotel management & booking (port 8082)
-├── car-rental-service/    # Car rental management (port 8083)
-├── docker-compose.yml
-├── Jenkinsfile
-├── .travis.yml
-└── README.md
-```
+## Description
+The Travel Booking System is a Spring Cloud microservices application consisting of 5 services that work together to provide flight, hotel, and car rental search functionality.
 
-### Service Ports
+| Service | Port | Role |
+|---------|------|------|
+| discovery-service | 8761 | Netflix Eureka server — service registry |
+| api-gateway | 8080 | Netflix Zuul proxy — single entry point for all clients |
+| flight-service | 8081 | Flight search with Booking.com API and mock data fallback |
+| hotel-service | 8082 | Hotel search with Booking.com API and mock data fallback |
+| car-rental-service | 8083 | Car rental search with Booking.com API and mock data fallback |
 
-| Service           | Port |
-|-------------------|------|
-| Discovery Service | 8761 |
-| API Gateway       | 8080 |
-| Flight Service    | 8081 |
-| Hotel Service     | 8082 |
-| Car Rental        | 8083 |
+Services register themselves with Eureka on startup. The API Gateway discovers them dynamically by name — no hardcoded IPs required. Each domain service integrates with the Booking.com API via RapidAPI. Without an API key the services automatically fall back to built-in mock data so all endpoints respond correctly in both modes.
 
----
+Three CI/CD pipelines are configured in parallel. GitHub Actions deploys to DigitalOcean via SSH on every push to main. Jenkins builds Docker images and pushes to Docker Hub then deploys to Heroku. Travis CI builds and deploys to Heroku Container Registry. All three pipelines run tests and generate JaCoCo coverage reports.
 
-## Tech Stack
-
-- **Java 11** + **Spring Boot 2.7.18**
-- **Spring Cloud 2021.0.8** (Eureka, Gateway)
-- **H2** in-memory database (per service)
-- **JUnit 5** + **Mockito** for unit testing
-- **JaCoCo** for code coverage
-- **Docker** + **Docker Compose**
-- **Jenkins** or **Travis CI** for CI/CD
-- **Heroku** for cloud deployment
-
----
+Live demo is deployed on DigitalOcean and accessible at the following URLs without any credentials:
+- Eureka Dashboard: http://64.226.68.244:8761
+- API Gateway: http://64.226.68.244:8080
+- Flight Service: http://64.226.68.244:8081/flights
+- Hotel Service: http://64.226.68.244:8082/hotels
+- Car Rental Service: http://64.226.68.244:8083/cars
+- Swagger UI Flight: http://64.226.68.244:8081/swagger-ui/index.html
+- Swagger UI Hotel: http://64.226.68.244:8082/swagger-ui/index.html
+- Swagger UI Car Rental: http://64.226.68.244:8083/swagger-ui/index.html
 
 ## Installation
+Requirements: Java 11 or higher, Maven 3.6 or higher, Docker and Docker Compose.
 
-### Prerequisites
-
-- Java 11+
-- Maven 3.8+
-- Docker & Docker Compose
-
-### Build All Services
-
+Clone the repository and build all services:
 ```bash
-mvn clean package
+git clone https://github.com/HuseynliIlqar/taking-care-of-business.git
+cd taking-care-of-business/travel-booking
+mvn clean package -DskipTests
 ```
 
-### Run Locally with Docker Compose
-
+Start all 5 services with Docker Compose:
 ```bash
 docker-compose up --build
 ```
 
-This starts all five services. Visit `http://localhost:8761` to see the Eureka dashboard.
-
-### Run a Single Service Locally
-
+All services start automatically in the correct order. Discovery service starts first, then domain services, then the API Gateway. Stop everything with:
 ```bash
-cd flight-service
-mvn spring-boot:run
+docker-compose down
 ```
 
-> Note: Set `eureka.client.service-url.defaultZone=http://localhost:8761/eureka/` in `application.yml` for local runs.
-
----
-
-## API Endpoints (via API Gateway at port 8080)
-
-### Flights — `/api/flights`
-
-| Method | Endpoint                     | Description           |
-|--------|------------------------------|-----------------------|
-| GET    | `/api/flights`               | List all flights      |
-| GET    | `/api/flights/{id}`          | Get flight by ID      |
-| GET    | `/api/flights/search?origin=X&destination=Y` | Search flights |
-| GET    | `/api/flights/available`     | Available flights     |
-| POST   | `/api/flights`               | Create flight         |
-| PUT    | `/api/flights/{id}`          | Update flight         |
-| DELETE | `/api/flights/{id}`          | Delete flight         |
-| POST   | `/api/flights/{id}/book`     | Book a seat           |
-
-### Hotels — `/api/hotels`
-
-| Method | Endpoint                          | Description            |
-|--------|-----------------------------------|------------------------|
-| GET    | `/api/hotels`                     | List all hotels        |
-| GET    | `/api/hotels/{id}`                | Get hotel by ID        |
-| GET    | `/api/hotels/search?location=X`   | Hotels by location     |
-| GET    | `/api/hotels/available?location=X`| Available in location  |
-| GET    | `/api/hotels/stars?min=4`         | Hotels by min stars    |
-| POST   | `/api/hotels`                     | Create hotel           |
-| PUT    | `/api/hotels/{id}`                | Update hotel           |
-| DELETE | `/api/hotels/{id}`                | Delete hotel           |
-| POST   | `/api/hotels/{id}/book`           | Book a room            |
-
-### Cars — `/api/cars`
-
-| Method | Endpoint                            | Description             |
-|--------|-------------------------------------|-------------------------|
-| GET    | `/api/cars`                         | List all cars           |
-| GET    | `/api/cars/{id}`                    | Get car by ID           |
-| GET    | `/api/cars/available`               | Available cars          |
-| GET    | `/api/cars/search?location=X`       | Cars by location        |
-| GET    | `/api/cars/category?category=SUV`   | Cars by category        |
-| POST   | `/api/cars`                         | Add car                 |
-| PUT    | `/api/cars/{id}`                    | Update car              |
-| DELETE | `/api/cars/{id}`                    | Delete car              |
-| POST   | `/api/cars/{id}/rent`               | Rent a car              |
-| POST   | `/api/cars/{id}/return`             | Return a car            |
-
----
-
-## Testing
-
-### Run All Tests
-
+To run services locally without Docker, start them in this exact order:
 ```bash
-mvn test
+# Terminal 1 - start first and wait for http://localhost:8761
+cd travel-booking/discovery-service && mvn spring-boot:run
+
+# Terminal 2, 3, 4 - after Eureka is up
+cd travel-booking/flight-service && mvn spring-boot:run
+cd travel-booking/hotel-service && mvn spring-boot:run
+cd travel-booking/car-rental-service && mvn spring-boot:run
+
+# Terminal 5 - start last
+cd travel-booking/api-gateway && mvn spring-boot:run
 ```
 
-### Generate Coverage Report (JaCoCo)
-
+Run all tests and generate coverage report:
 ```bash
-mvn jacoco:report
+cd travel-booking
+mvn clean test jacoco:report
 ```
 
-Reports are generated at `target/site/jacoco/index.html` in each service directory.
-
----
-
-## CI/CD Pipeline
-
-### Jenkins
-
-1. Install Jenkins with the Maven, Docker, and JaCoCo plugins.
-2. Create a pipeline job pointing to this repository.
-3. Set credentials in Jenkins:
-   - `DOCKERHUB_CREDENTIALS` — Docker Hub username/password
-   - `HEROKU_API_KEY` — Heroku API token
-4. The `Jenkinsfile` at the project root defines the pipeline stages:
-   - **Checkout** → **Build** → **Test** → **Code Coverage** → **Docker Build** → **Docker Push** → **Deploy to Heroku**
-
-### Travis CI
-
-1. Connect the repository to [Travis CI](https://travis-ci.com).
-2. Set environment variables in the Travis CI repository settings:
-   - `DOCKER_USERNAME`
-   - `DOCKER_PASSWORD`
-   - `HEROKU_API_KEY`
-3. The `.travis.yml` file handles build, test, coverage upload to Codecov, Docker image publishing, and Heroku deployment automatically on pushes to `main`.
-
----
-
-## Cloud Deployment (Heroku)
-
-Each microservice is deployed as a separate Heroku app:
-
-| Service           | Heroku App                    |
-|-------------------|-------------------------------|
-| Discovery Service | `travel-booking-discovery-service` |
-| API Gateway       | `travel-booking-api-gateway`  |
-| Flight Service    | `travel-booking-flight-service` |
-| Hotel Service     | `travel-booking-hotel-service` |
-| Car Rental        | `travel-booking-car-rental-service` |
-
-Deploy manually:
-
+To run Jenkins locally for pipeline review:
 ```bash
-heroku container:login
-heroku container:push web --app travel-booking-flight-service
-heroku container:release web --app travel-booking-flight-service
+cd travel-booking
+docker-compose -f docker-compose.jenkins.yml up -d
+```
+Open http://localhost:8080 and get the admin password:
+```bash
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+Then create a Pipeline job with SCM Git URL https://github.com/HuseynliIlqar/taking-care-of-business and Script Path travel-booking/Jenkinsfile.
+
+## Usage
+```bash
+# Get all flights
+curl http://64.226.68.244:8080/flights
+
+# Search flights by route
+curl "http://64.226.68.244:8080/flights/search?origin=NYC&destination=LAX"
+
+# Get all hotels
+curl http://64.226.68.244:8080/hotels
+
+# Search hotels by city
+curl "http://64.226.68.244:8080/hotels/search?location=LosAngeles"
+
+# Get all cars
+curl http://64.226.68.244:8080/cars
+
+# Search cars by location
+curl "http://64.226.68.244:8080/cars/search?location=Prague"
+
+# Search cars by type
+curl "http://64.226.68.244:8080/cars/search?type=SUV"
 ```
 
----
+Available flight routes: NYC to LAX, LAX to NYC, SFO to ORD, BOS to MIA, MIA to BOS, ORD to SFO, NYC to CHI.
+
+Available hotel cities: LosAngeles, NewYork, Miami, Chicago, SanFrancisco, Boston.
+
+Available car locations in the US with mock data: LosAngeles, NewYork, Miami, Chicago, SanFrancisco, Boston.
+
+Available car locations in Europe with live Booking.com API: Prague, London, Paris, Berlin, Rome, Amsterdam.
+
+Car types: Economy, Compact, Sedan, SUV, Luxury, Electric.
+
+### The Core Team
+
 
 <span><i>Made at <a href='https://qwasar.io'>Qwasar SV -- Software Engineering School</a></i></span>
-<span><img alt='Qwasar SV -- Software Engineering School Logo' src='https://storage.googleapis.com/qwasar-public/qwasar-logo_50x50.png' width='20px' /></span>
+<span><img alt='Qwasar SV -- Software Engineering School's Logo' src='https://storage.googleapis.com/qwasar-public/qwasar-logo_50x50.png' width='20px' /></span>
