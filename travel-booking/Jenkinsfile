@@ -1,0 +1,151 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKER_IMAGE_PREFIX = 'travel-booking'
+        HEROKU_API_KEY = credentials('heroku-api-key')
+        HEROKU_APP_PREFIX = 'travel-booking'
+    }
+
+    tools {
+        maven 'Maven 3.8.6'
+        jdk 'JDK 11'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Branch: ${env.BRANCH_NAME}"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('travel-booking') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+            post {
+                success {
+                    echo 'Build successful'
+                }
+                failure {
+                    echo 'Build failed'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('travel-booking') {
+                    sh 'mvn test'
+                }
+            }
+            post {
+                always {
+                    junit 'travel-booking/**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Code Coverage') {
+            steps {
+                dir('travel-booking') {
+                    sh 'mvn jacoco:report'
+                }
+            }
+            post {
+                always {
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        exclusionPattern: '**/src/test*'
+                    )
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('travel-booking') {
+                    script {
+                        def services = [
+                            'discovery-service',
+                            'api-gateway',
+                            'flight-service',
+                            'hotel-service',
+                            'car-rental-service'
+                        ]
+                        services.each { service ->
+                            sh "docker build -t ${DOCKER_IMAGE_PREFIX}/${service}:${env.BUILD_NUMBER} ./${service}"
+                            sh "docker tag ${DOCKER_IMAGE_PREFIX}/${service}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_PREFIX}/${service}:latest"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
+                        def services = [
+                            'discovery-service',
+                            'api-gateway',
+                            'flight-service',
+                            'hotel-service',
+                            'car-rental-service'
+                        ]
+                        services.each { service ->
+                            sh "docker push ${DOCKER_IMAGE_PREFIX}/${service}:${env.BUILD_NUMBER}"
+                            sh "docker push ${DOCKER_IMAGE_PREFIX}/${service}:latest"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Heroku') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    def services = [
+                        [name: 'discovery-service', app: "${HEROKU_APP_PREFIX}-discovery"],
+                        [name: 'api-gateway',        app: "${HEROKU_APP_PREFIX}-gateway"],
+                        [name: 'flight-service',     app: "${HEROKU_APP_PREFIX}-flight"],
+                        [name: 'hotel-service',      app: "${HEROKU_APP_PREFIX}-hotel"],
+                        [name: 'car-rental-service', app: "${HEROKU_APP_PREFIX}-carrental"]
+                    ]
+                    services.each { svc ->
+                        sh """
+                            heroku container:login
+                            heroku container:push web --app ${svc.app} --context-path travel-booking/${svc.name}
+                            heroku container:release web --app ${svc.app}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check the logs.'
+        }
+    }
+}

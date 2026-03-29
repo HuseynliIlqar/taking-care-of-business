@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  discovery-service:
+    build: ./discovery-service
+    image: travel-booking/discovery-service:latest
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  api-gateway:
+    build: ./api-gateway
+    image: travel-booking/api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  flight-service:
+    build: ./flight-service
+    image: travel-booking/flight-service:latest
+    container_name: flight-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  hotel-service:
+    build: ./hotel-service
+    image: travel-booking/hotel-service:latest
+    container_name: hotel-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  car-rental-service:
+    build: ./car-rental-service
+    image: travel-booking/car-rental-service:latest
+    container_name: car-rental-service
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+networks:
+  travel-network:
+    driver: bridge

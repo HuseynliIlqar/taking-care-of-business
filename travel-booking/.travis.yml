@@ -1,0 +1,63 @@
+language: java
+
+jdk:
+  - openjdk11
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.m2
+
+before_install:
+  - cd travel-booking
+
+install:
+  - mvn clean package -DskipTests
+
+script:
+  - mvn test
+  - mvn jacoco:report
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -s travel-booking
+
+before_deploy:
+  - docker build -t travel-booking/discovery-service:latest  ./discovery-service
+  - docker build -t travel-booking/api-gateway:latest        ./api-gateway
+  - docker build -t travel-booking/flight-service:latest     ./flight-service
+  - docker build -t travel-booking/hotel-service:latest      ./hotel-service
+  - docker build -t travel-booking/car-rental-service:latest ./car-rental-service
+
+deploy:
+  - provider: heroku
+    api_key: $HEROKU_API_KEY
+    app: travel-booking-discovery
+    on:
+      branch: main
+  - provider: heroku
+    api_key: $HEROKU_API_KEY
+    app: travel-booking-gateway
+    on:
+      branch: main
+  - provider: heroku
+    api_key: $HEROKU_API_KEY
+    app: travel-booking-flight
+    on:
+      branch: main
+  - provider: heroku
+    api_key: $HEROKU_API_KEY
+    app: travel-booking-hotel
+    on:
+      branch: main
+  - provider: heroku
+    api_key: $HEROKU_API_KEY
+    app: travel-booking-carrental
+    on:
+      branch: main
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always

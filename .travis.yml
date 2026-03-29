@@ -1,0 +1,66 @@
+language: java
+
+jdk:
+  - openjdk11
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.m2
+
+# cd persists to all subsequent phases within the same Travis build
+before_install:
+  - cd travel-booking
+
+install:
+  - mvn clean package -DskipTests
+
+script:
+  - mvn test
+  - mvn jacoco:report
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
+before_deploy:
+  - curl https://cli-assets.heroku.com/install.sh | sh
+  - heroku container:login
+
+  # Set required config vars on each Heroku app
+  - heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app flight-service
+  - heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app hotel-service
+  - heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app car-rental-service
+  - heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app api-gateway
+  # Gateway uses 'heroku' profile → static URL routing instead of Eureka-based routing
+  - heroku config:set SPRING_PROFILES_ACTIVE=heroku --app api-gateway
+
+  # Build Docker images and push to Heroku Container Registry
+  - docker build -t registry.heroku.com/discoveryservice/web  ./discovery-service
+  - docker build -t registry.heroku.com/api-gateway/web       ./api-gateway
+  - docker build -t registry.heroku.com/flight-service/web    ./flight-service
+  - docker build -t registry.heroku.com/hotel-service/web     ./hotel-service
+  - docker build -t registry.heroku.com/car-rental-service/web ./car-rental-service
+
+  - docker push registry.heroku.com/discoveryservice/web
+  - docker push registry.heroku.com/api-gateway/web
+  - docker push registry.heroku.com/flight-service/web
+  - docker push registry.heroku.com/hotel-service/web
+  - docker push registry.heroku.com/car-rental-service/web
+
+deploy:
+  provider: script
+  script: >
+    heroku container:release web --app discoveryservice  &&
+    heroku container:release web --app api-gateway       &&
+    heroku container:release web --app flight-service    &&
+    heroku container:release web --app hotel-service     &&
+    heroku container:release web --app car-rental-service
+  on:
+    branch: main
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
