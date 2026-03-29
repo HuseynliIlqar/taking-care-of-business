@@ -5,6 +5,7 @@ services:
     build: ./discovery-service
     image: travel-booking/discovery-service:latest
     container_name: discovery-service
+    restart: unless-stopped
     ports:
       - "8761:8761"
     networks:
@@ -20,6 +21,7 @@ services:
     build: ./api-gateway
     image: travel-booking/api-gateway:latest
     container_name: api-gateway
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
@@ -34,6 +36,7 @@ services:
     build: ./flight-service
     image: travel-booking/flight-service:latest
     container_name: flight-service
+    restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
@@ -49,6 +52,7 @@ services:
     build: ./hotel-service
     image: travel-booking/hotel-service:latest
     container_name: hotel-service
+    restart: unless-stopped
     ports:
       - "8082:8082"
     environment:
@@ -64,6 +68,7 @@ services:
     build: ./car-rental-service
     image: travel-booking/car-rental-service:latest
     container_name: car-rental-service
+    restart: unless-stopped
     ports:
       - "8083:8083"
     environment:
