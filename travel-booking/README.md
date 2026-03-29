@@ -1,37 +1,38 @@
 # Travel Booking System — Spring Cloud Microservices
 
-A microservice-based travel booking application using **Netflix Eureka** for service discovery and **Netflix Zuul** as the API gateway.
+A microservice-based travel booking application built with Spring Boot, Netflix Eureka for service discovery, and Netflix Zuul as the API gateway. The project implements a full CI/CD pipeline using GitHub Actions, Jenkins, and Travis CI, with automated testing, code coverage reporting via JaCoCo and CodeCov, and deployment to DigitalOcean.
 
-> **API istifadə təlimatı, düzgün input dəyərləri və nümunə cavablar üçün:**
-> **[API_DOCS.md](./API_DOCS.md)** — bütün endpoint-lər, mövcud şəhər/marşrut siyahısı və sınaq qaydası burada ətraflı izah edilib.
+> This project was developed as part of the [Qwasar](https://qwasar.io) curriculum.
 
-## Live Demo (DigitalOcean)
+---
 
-All services are deployed and publicly accessible — no credentials required.
+## Task
 
-### Service Endpoints
+Implement a CI/CD pipeline for a microservice-based travel booking application. The pipeline must:
 
-| Service | URL |
-|---------|-----|
-| Eureka Dashboard | http://64.226.68.244:8761 |
-| API Gateway | http://64.226.68.244:8080 |
-| Flight Service | http://64.226.68.244:8081/flights |
-| Hotel Service | http://64.226.68.244:8082/hotels |
-| Car Rental Service | http://64.226.68.244:8083/cars |
+- Build Docker images for each microservice (5 services total)
+- Run unit tests for every microservice using JUnit
+- Generate code coverage reports using JaCoCo (minimum 70% line coverage)
+- Upload coverage results to CodeCov
+- Deploy the application automatically to a cloud platform (DigitalOcean) on every push to `main`
+- Support both Jenkins (via `Jenkinsfile`) and Travis CI (via `.travis.yml`) as CI/CD tools
+- Use Docker Compose to orchestrate all services locally and in production
 
-### Swagger UI (Interactive API Docs)
+---
 
-Each domain service has its own Swagger UI. Open in browser to explore and test all endpoints interactively:
+## Description
 
-| Service | Swagger URL |
-|---------|------------|
-| Flight Service | http://64.226.68.244:8081/swagger-ui/index.html |
-| Hotel Service | http://64.226.68.244:8082/swagger-ui/index.html |
-| Car Rental Service | http://64.226.68.244:8083/swagger-ui/index.html |
+The Travel Booking System is composed of 5 independent Spring Boot microservices:
 
-> **Note:** The Eureka dashboard may show internal Docker hostnames (e.g. `d43ce9e8d88c:api-gateway:8080`) — this is expected Docker behaviour. Use the public IP URLs above to access the services.
+| Service | Port | Responsibility |
+|---------|------|---------------|
+| `discovery-service` | 8761 | Netflix Eureka server — service registry |
+| `api-gateway` | 8080 | Netflix Zuul proxy — single entry point for all clients |
+| `flight-service` | 8081 | Flight search (mock data + Booking.com API fallback) |
+| `hotel-service` | 8082 | Hotel search (mock data + Booking.com API fallback) |
+| `car-rental-service` | 8083 | Car rental search (mock data + Booking.com API fallback) |
 
-## Architecture
+### Architecture
 
 ```
 Client
@@ -46,183 +47,56 @@ API Gateway (Zuul) :8080
     Discovery Service (Eureka) :8761
 ```
 
-## Project Structure
+Services register themselves with Eureka on startup. The API Gateway discovers them dynamically by name — no hardcoded IPs required.
 
-```
-travel-booking/
-├── pom.xml                    (parent POM — Spring Boot 2.3.12, Spring Cloud Hoxton.SR12)
-├── discovery-service/         (Eureka Server — port 8761)
-├── api-gateway/               (Zuul Proxy — port 8080)
-├── flight-service/            (Flight Search — port 8081)
-├── hotel-service/             (Hotel Search — port 8082)
-└── car-rental-service/        (Car Rental Search — port 8083)
-```
+### External API Integration
 
-## External API Integration
+All three domain services integrate with the **Booking.com API via RapidAPI**. If no API key is configured, they automatically fall back to built-in mock data. The application works fully in both modes.
 
-All three services integrate with the **Booking.com API via RapidAPI**:
-
-| Service | Endpoint Used |
-|---------|--------------|
+| Service | Booking.com Endpoint |
+|---------|---------------------|
 | FlightService | `GET /v1/flights/search` |
 | HotelService | `GET /v1/hotels/locations` + `GET /v1/hotels/search` |
 | CarRentalService | `GET /v1/car-rental/search` |
 
-### ⚠️ API Key Required — Read Before Reviewing
+### CI/CD Pipeline
 
-> The external API calls will only execute if a valid `RAPIDAPI_KEY` is present.
-> **Without a key, all three services automatically fall back to built-in mock data.**
-> The application starts and all endpoints respond correctly in both modes.
+Three parallel CI/CD configurations are provided:
 
-To enable live API calls, create the file `travel-booking/.env`:
+| Tool | Config file | Deployment target |
+|------|------------|-------------------|
+| GitHub Actions | `.github/workflows/ci-cd.yml` | DigitalOcean (SSH) |
+| Jenkins | `travel-booking/Jenkinsfile` | Docker Hub + Heroku |
+| Travis CI | `.travis.yml` | Heroku Container Registry |
 
-```
-RAPIDAPI_KEY=your_key_here
-RAPIDAPI_HOST=booking-com.p.rapidapi.com
-```
+### Technology Stack
 
-Get a free key at [rapidapi.com](https://rapidapi.com) → search **"Booking com"** → subscribe to the Basic plan.
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Spring Boot | 2.3.12.RELEASE | Application framework |
+| Spring Cloud | Hoxton.SR12 | Microservices toolkit |
+| Netflix Eureka | — | Service discovery |
+| Netflix Zuul | — | API gateway / reverse proxy |
+| Docker | — | Containerisation |
+| Docker Compose | — | Multi-container orchestration |
+| JaCoCo | 0.8.8 | Code coverage (70% minimum) |
+| CodeCov | — | Coverage reporting |
+| Maven | 3.6+ | Build tool |
+| Java | 11 | Runtime |
 
-### ⚠️ RapidAPI Basic Plan Limits
+---
 
-The project is built on the **RapidAPI Basic (free) plan**, which has hard limits:
+## Installation
 
-| Limit | Value |
-|-------|-------|
-| **Monthly requests** | **530 requests / month** |
-| **Rate limit** | **5 requests / second** |
-| **Monthly bandwidth** | **10,240 MB / month** |
-
-**What this means for reviewers:**
-
-- Do **not** run automated test suites that hit the live API in a loop — this will exhaust the monthly quota instantly.
-- Test each endpoint **manually**, one request at a time.
-- The HotelService makes **2 API calls per search** (location lookup + hotel search) — keep this in mind.
-- If the API returns an error (quota exceeded or key invalid), the service **silently falls back to mock data** and still returns a valid JSON response. This is intentional, not a bug.
-- To verify that live API integration is working, check the application logs — a successful external call logs at DEBUG level; a fallback logs a WARN message.
-
-## Prerequisites
+### Prerequisites
 
 - Java 11+
 - Maven 3.6+
+- Docker and Docker Compose
 
-## Build
+### Option 1 — Docker Compose (recommended)
 
-```bash
-cd travel-booking
-mvn clean install
-```
-
-## Running the Application
-
-**Start services in this exact order:**
-
-### 1. Discovery Service (start first)
-```bash
-cd discovery-service
-mvn spring-boot:run
-```
-Wait until the Eureka dashboard is available at http://localhost:8761
-
-### 2. Domain Services (start in any order)
-```bash
-# Terminal 1
-cd flight-service && mvn spring-boot:run
-
-# Terminal 2
-cd hotel-service && mvn spring-boot:run
-
-# Terminal 3
-cd car-rental-service && mvn spring-boot:run
-```
-
-### 3. API Gateway (start last)
-```bash
-cd api-gateway
-mvn spring-boot:run
-```
-
-Wait ~30 seconds for all services to register with Eureka before testing gateway routes.
-
-## API Endpoints
-
-### Via API Gateway (recommended)
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `http://localhost:8080/flights` | All available flights |
-| GET | `http://localhost:8080/flights/search?origin=NYC&destination=LAX` | Search flights by route |
-| GET | `http://localhost:8080/hotels` | All available hotels |
-| GET | `http://localhost:8080/hotels/search?location=LosAngeles` | Search hotels by city |
-| GET | `http://localhost:8080/cars` | All available cars |
-| GET | `http://localhost:8080/cars/search?location=LosAngeles` | Search cars by location |
-| GET | `http://localhost:8080/cars/search?type=SUV` | Search cars by type |
-
-### Direct Service Calls
-
-| Service | Base URL |
-|---------|----------|
-| Flight Service | `http://localhost:8081/flights` |
-| Hotel Service | `http://localhost:8082/hotels` |
-| Car Rental Service | `http://localhost:8083/cars` |
-
-## Example curl Commands
-
-```bash
-# Search flights NYC → LAX
-curl "http://localhost:8080/flights/search?origin=NYC&destination=LAX"
-
-# Search hotels in Los Angeles
-curl "http://localhost:8080/hotels/search?location=LosAngeles"
-
-# Search cars in Los Angeles
-curl "http://localhost:8080/cars/search?location=LosAngeles"
-
-# Search SUVs in any location
-curl "http://localhost:8080/cars/search?type=SUV"
-
-# Get all flights
-curl http://localhost:8080/flights
-
-# Eureka dashboard
-open http://localhost:8761
-```
-
-## Sample Flight Data
-
-Available origins/destinations: `NYC`, `LAX`, `SFO`, `ORD`, `BOS`, `MIA`, `CHI`
-
-## Sample Hotel Cities
-
-Available cities: `LosAngeles`, `NewYork`, `Miami`, `Chicago`, `SanFrancisco`, `Boston`
-
-## Sample Car Locations
-
-**US cities (mock data fallback — Booking.com car rental API does not cover US locations):**
-`LosAngeles`, `NewYork`, `Miami`, `Chicago`, `SanFrancisco`, `Boston`
-
-**European cities (live Booking.com API — real results returned when key is configured):**
-`Prague`, `London`, `Paris`, `Berlin`, `Rome`, `Amsterdam`
-
-Car types: `Economy`, `Compact`, `Sedan`, `SUV`, `Luxury`, `Electric`
-
-> To test live car rental data, use a European city:
-> ```
-> GET http://localhost:8080/cars/search?location=Prague
-> GET http://localhost:8080/cars/search?location=London
-> ```
-
-## Docker Base Image Note
-
-All Dockerfiles use `eclipse-temurin:11-jre-jammy` instead of `openjdk:11-jre-slim`.
-`openjdk:11-jre-slim` was removed from Docker Hub; `eclipse-temurin` is its official successor
-maintained by the Adoptium project and is the recommended replacement.
-
-## CI/CD Pipeline
-
-### 1. Run Application with Docker Compose
-
-Build JAR files first, then start all 5 services:
+Build JAR files and start all 5 services with a single command:
 
 ```bash
 cd travel-booking
@@ -230,61 +104,166 @@ mvn clean package -DskipTests
 docker-compose up --build
 ```
 
-Services will be available at the same ports as local mode. Stop with `docker-compose down`.
+All services will start automatically in the correct order (discovery-service first, then domain services, then api-gateway). Stop with:
+
+```bash
+docker-compose down
+```
+
+### Option 2 — Run locally with Maven
+
+Start services in this exact order:
+
+**Step 1 — Discovery Service**
+```bash
+cd travel-booking/discovery-service
+mvn spring-boot:run
+```
+Wait until Eureka dashboard is available at http://localhost:8761
+
+**Step 2 — Domain Services** (start in any order, each in a separate terminal)
+```bash
+cd travel-booking/flight-service && mvn spring-boot:run
+cd travel-booking/hotel-service && mvn spring-boot:run
+cd travel-booking/car-rental-service && mvn spring-boot:run
+```
+
+**Step 3 — API Gateway** (start last)
+```bash
+cd travel-booking/api-gateway
+mvn spring-boot:run
+```
+
+Wait ~30 seconds for all services to register with Eureka before testing.
+
+### Optional — Enable Live Booking.com API
+
+Without a key, all services return built-in mock data. To enable real API calls, create `travel-booking/.env`:
+
+```
+RAPIDAPI_KEY=your_key_here
+RAPIDAPI_HOST=booking-com.p.rapidapi.com
+```
+
+Get a free key at [rapidapi.com](https://rapidapi.com) → search "Booking com" → subscribe to the Basic plan.
+
+### Run Tests
+
+```bash
+cd travel-booking
+mvn clean test
+```
+
+### Generate Code Coverage Report
+
+```bash
+cd travel-booking
+mvn clean test jacoco:report
+```
+
+Reports are generated at `<service>/target/site/jacoco/index.html`. The build enforces a **70% line coverage minimum** per module.
+
+### Docker Base Image Note
+
+All Dockerfiles use `eclipse-temurin:11-jre-jammy` instead of `openjdk:11-jre-slim`.
+`openjdk:11-jre-slim` was removed from Docker Hub; `eclipse-temurin` is its official
+successor maintained by the Adoptium project.
 
 ---
 
-### 2. GitHub Actions (Active CI/CD)
+## Usage
 
-Every push to `main` triggers the full pipeline automatically:
+### Live Demo (DigitalOcean)
 
-| Job | Steps |
-|-----|-------|
-| **Build & Test** | `mvn clean package` → `mvn test` → JaCoCo report → CodeCov upload |
-| **Docker Build** | Builds Docker image for each of the 5 services |
-| **Deploy to Heroku** | Pushes images to Heroku Container Registry → releases all 5 apps |
-
-**Required GitHub Secrets** (Settings → Secrets → Actions):
-
-| Secret | Description |
-|--------|-------------|
-| `HEROKU_API_KEY` | `heroku auth:token` çıxışı |
-| `CODECOV_TOKEN` | codecov.io project token (optional) |
-
-**Live URLs after deploy:**
+All services are deployed and publicly accessible — no credentials required.
 
 | Service | URL |
 |---------|-----|
-| API Gateway | https://api-gateway.herokuapp.com |
-| Flight Service | https://flight-service.herokuapp.com/flights |
-| Hotel Service | https://hotel-service.herokuapp.com/hotels |
-| Car Rental | https://car-rental-service.herokuapp.com/cars |
-| Eureka Dashboard | https://discoveryservice.herokuapp.com |
+| Eureka Dashboard | http://64.226.68.244:8761 |
+| API Gateway | http://64.226.68.244:8080 |
+| Flight Service | http://64.226.68.244:8081/flights |
+| Hotel Service | http://64.226.68.244:8082/hotels |
+| Car Rental Service | http://64.226.68.244:8083/cars |
 
----
+> **Note:** The Eureka dashboard shows internal Docker hostnames (e.g. `d43ce9e8d88c:api-gateway:8080`) — this is expected Docker behaviour. Use the public IP URLs above to access the services.
 
-### 3. Jenkins (Local — for reviewers)
+### Swagger UI (Interactive API Docs)
 
-Run Jenkins locally with a single Docker command:
+Each domain service has its own Swagger UI for interactive endpoint testing:
+
+| Service | Swagger URL |
+|---------|------------|
+| Flight Service | http://64.226.68.244:8081/swagger-ui/index.html |
+| Hotel Service | http://64.226.68.244:8082/swagger-ui/index.html |
+| Car Rental Service | http://64.226.68.244:8083/swagger-ui/index.html |
+
+### API Endpoints
+
+#### Via API Gateway (recommended)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/flights` | All available flights |
+| GET | `/flights/search?origin=NYC&destination=LAX` | Search flights by route |
+| GET | `/hotels` | All available hotels |
+| GET | `/hotels/search?location=LosAngeles` | Search hotels by city |
+| GET | `/cars` | All available cars |
+| GET | `/cars/search?location=LosAngeles` | Search cars by location |
+| GET | `/cars/search?type=SUV` | Search cars by type |
+
+#### Example curl Commands
+
+```bash
+# Search flights NYC → LAX
+curl "http://64.226.68.244:8080/flights/search?origin=NYC&destination=LAX"
+
+# Search hotels in Los Angeles
+curl "http://64.226.68.244:8080/hotels/search?location=LosAngeles"
+
+# Search cars in Los Angeles
+curl "http://64.226.68.244:8080/cars/search?location=LosAngeles"
+
+# Search SUVs
+curl "http://64.226.68.244:8080/cars/search?type=SUV"
+
+# Get all flights
+curl http://64.226.68.244:8080/flights
+```
+
+### Available Sample Data
+
+**Flight routes:** `NYC→LAX`, `LAX→NYC`, `SFO→ORD`, `BOS→MIA`, `MIA→BOS`, `ORD→SFO`, `NYC→CHI`
+
+**Hotel cities:** `LosAngeles`, `NewYork`, `Miami`, `Chicago`, `SanFrancisco`, `Boston`
+
+**Car locations (US mock):** `LosAngeles`, `NewYork`, `Miami`, `Chicago`, `SanFrancisco`, `Boston`
+
+**Car locations (EU live API):** `Prague`, `London`, `Paris`, `Berlin`, `Rome`, `Amsterdam`
+
+**Car types:** `Economy`, `Compact`, `Sedan`, `SUV`, `Luxury`, `Electric`
+
+### Jenkins (Local — for reviewers)
+
+Run Jenkins locally with Docker:
 
 ```bash
 cd travel-booking
 docker-compose -f docker-compose.jenkins.yml up -d
 ```
 
-Open **http://localhost:8080** and get the initial admin password:
+Open **http://localhost:8080** and retrieve the admin password:
 
 ```bash
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-**Pipeline setup in Jenkins UI:**
+**Pipeline setup:**
 1. Install suggested plugins
-2. **New Item** → **Pipeline** → name: `travel-booking-pipeline`
-3. Pipeline → Definition: **Pipeline script from SCM**
-4. SCM: **Git** → URL: `https://github.com/HuseynliIlqar/taking-care-of-business`
+2. New Item → Pipeline → name: `travel-booking-pipeline`
+3. Pipeline → Definition: Pipeline script from SCM
+4. SCM: Git → URL: `https://github.com/HuseynliIlqar/taking-care-of-business`
 5. Script Path: `travel-booking/Jenkinsfile`
-6. **Save** → **Build Now**
+6. Save → Build Now
 
 **Jenkins pipeline stages:**
 
@@ -298,52 +277,18 @@ docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 | Docker Push | Pushes to Docker Hub (`main` branch only) |
 | Deploy to Heroku | Container deploy to Heroku (`main` branch only) |
 
-**Jenkins credentials** (Manage Jenkins → Credentials):
+**Required Jenkins credentials** (Manage Jenkins → Credentials):
 
 | ID | Type | Description |
 |----|------|-------------|
 | `dockerhub-credentials` | Username/Password | Docker Hub account |
 | `heroku-api-key` | Secret text | Heroku API key |
 
----
+### GitHub Actions Secrets
 
-### 4. Travis CI (alternative configuration)
-
-`.travis.yml` at the repo root defines the same pipeline for Travis CI.
-
-Set these environment variables in Travis CI project settings:
-
-```
-HEROKU_API_KEY=your_heroku_api_key
-CODECOV_TOKEN=your_codecov_token
-```
-
----
-
-### Code Coverage — JaCoCo
-
-JaCoCo is configured in the parent `pom.xml`. HTML reports generated at:
-
-```
-<service>/target/site/jacoco/index.html
-```
-
-Run locally:
-```bash
-cd travel-booking
-mvn clean test jacoco:report
-```
-
-The build enforces a **70% line coverage minimum** per module.
-
-## Technology Stack
-
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Spring Boot | 2.3.12.RELEASE | Application framework |
-| Spring Cloud | Hoxton.SR12 | Microservices toolkit |
-| Netflix Eureka | — | Service discovery |
-| Netflix Zuul | — | API gateway / reverse proxy |
-| Spring Web | — | REST API |
-| Maven | 3.6+ | Build tool |
-| Java | 11 | Runtime |
+| Secret | Description |
+|--------|-------------|
+| `DO_HOST` | DigitalOcean server IP |
+| `DO_USER` | SSH username (root) |
+| `DO_PASSWORD` | SSH password |
+| `CODECOV_TOKEN` | CodeCov project token (optional) |
