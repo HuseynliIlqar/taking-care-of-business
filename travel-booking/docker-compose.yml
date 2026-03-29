@@ -9,12 +9,14 @@ services:
       - "8761:8761"
     networks:
       - travel-network
+    mem_limit: 256m
+    memswap_limit: 256m
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
   api-gateway:
     build: ./api-gateway
@@ -29,6 +31,8 @@ services:
         condition: service_healthy
     networks:
       - travel-network
+    mem_limit: 256m
+    memswap_limit: 256m
 
   flight-service:
     build: ./flight-service
@@ -44,6 +48,8 @@ services:
         condition: service_healthy
     networks:
       - travel-network
+    mem_limit: 200m
+    memswap_limit: 200m
 
   hotel-service:
     build: ./hotel-service
@@ -59,6 +65,8 @@ services:
         condition: service_healthy
     networks:
       - travel-network
+    mem_limit: 200m
+    memswap_limit: 200m
 
   car-rental-service:
     build: ./car-rental-service
@@ -74,6 +82,8 @@ services:
         condition: service_healthy
     networks:
       - travel-network
+    mem_limit: 200m
+    memswap_limit: 200m
 
 networks:
   travel-network:
