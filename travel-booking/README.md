@@ -188,9 +188,9 @@ Car types: `Economy`, `Compact`, `Sedan`, `SUV`, `Luxury`, `Electric`
 
 ## CI/CD Pipeline
 
-### Docker — Run with Docker Compose
+### 1. Run Application with Docker Compose
 
-Build JAR files first, then start all services with a single command:
+Build JAR files first, then start all 5 services:
 
 ```bash
 cd travel-booking
@@ -200,51 +200,109 @@ docker-compose up --build
 
 Services will be available at the same ports as local mode. Stop with `docker-compose down`.
 
-### Jenkins
+---
 
-The `Jenkinsfile` at the root of `travel-booking/` defines the full pipeline:
+### 2. GitHub Actions (Active CI/CD)
+
+Every push to `main` triggers the full pipeline automatically:
+
+| Job | Steps |
+|-----|-------|
+| **Build & Test** | `mvn clean package` → `mvn test` → JaCoCo report → CodeCov upload |
+| **Docker Build** | Builds Docker image for each of the 5 services |
+| **Deploy to Heroku** | Pushes images to Heroku Container Registry → releases all 5 apps |
+
+**Required GitHub Secrets** (Settings → Secrets → Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `HEROKU_API_KEY` | `heroku auth:token` çıxışı |
+| `CODECOV_TOKEN` | codecov.io project token (optional) |
+
+**Live URLs after deploy:**
+
+| Service | URL |
+|---------|-----|
+| API Gateway | https://api-gateway.herokuapp.com |
+| Flight Service | https://flight-service.herokuapp.com/flights |
+| Hotel Service | https://hotel-service.herokuapp.com/hotels |
+| Car Rental | https://car-rental-service.herokuapp.com/cars |
+| Eureka Dashboard | https://discoveryservice.herokuapp.com |
+
+---
+
+### 3. Jenkins (Local — for reviewers)
+
+Run Jenkins locally with a single Docker command:
+
+```bash
+cd travel-booking
+docker-compose -f docker-compose.jenkins.yml up -d
+```
+
+Open **http://localhost:8080** and get the initial admin password:
+
+```bash
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+**Pipeline setup in Jenkins UI:**
+1. Install suggested plugins
+2. **New Item** → **Pipeline** → name: `travel-booking-pipeline`
+3. Pipeline → Definition: **Pipeline script from SCM**
+4. SCM: **Git** → URL: `https://github.com/HuseynliIlqar/taking-care-of-business`
+5. Script Path: `travel-booking/Jenkinsfile`
+6. **Save** → **Build Now**
+
+**Jenkins pipeline stages:**
 
 | Stage | Description |
 |-------|-------------|
 | Checkout | Clone repository |
 | Build | `mvn clean package -DskipTests` |
 | Run Tests | `mvn test` — JUnit reports published |
-| Code Coverage | JaCoCo report generated (70% line coverage minimum) |
+| Code Coverage | JaCoCo report (70% line coverage minimum) |
 | Docker Build | Builds images for all 5 services |
-| Docker Push | Pushes images to Docker Hub (main branch only) |
-| Deploy to Heroku | Deploys each service as a Heroku container (main branch only) |
+| Docker Push | Pushes to Docker Hub (`main` branch only) |
+| Deploy to Heroku | Container deploy to Heroku (`main` branch only) |
 
-**Jenkins credentials required (configure in Jenkins → Credentials):**
+**Jenkins credentials** (Manage Jenkins → Credentials):
 
 | ID | Type | Description |
 |----|------|-------------|
 | `dockerhub-credentials` | Username/Password | Docker Hub account |
 | `heroku-api-key` | Secret text | Heroku API key |
 
-### Travis CI (alternative)
+---
 
-The `.travis.yml` file provides the same pipeline via Travis CI. Set these environment variables in your Travis CI project settings:
+### 4. Travis CI (alternative configuration)
+
+`.travis.yml` at the repo root defines the same pipeline for Travis CI.
+
+Set these environment variables in Travis CI project settings:
 
 ```
 HEROKU_API_KEY=your_heroku_api_key
-CODECOV_TOKEN=your_codecov_token   (optional — for codecov.io coverage reports)
+CODECOV_TOKEN=your_codecov_token
 ```
+
+---
 
 ### Code Coverage — JaCoCo
 
-JaCoCo is configured in the parent `pom.xml`. After running tests, HTML reports are generated at:
+JaCoCo is configured in the parent `pom.xml`. HTML reports generated at:
 
 ```
 <service>/target/site/jacoco/index.html
 ```
 
-Run coverage check locally:
+Run locally:
 ```bash
 cd travel-booking
 mvn clean test jacoco:report
 ```
 
-The build enforces a **70% line coverage minimum** per module. The check runs automatically during `mvn verify`.
+The build enforces a **70% line coverage minimum** per module.
 
 ## Technology Stack
 

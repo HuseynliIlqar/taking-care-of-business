@@ -1,0 +1,40 @@
+version: '3.8'
+
+# Jenkins CI/CD container — for local pipeline review
+#
+# Usage:
+#   docker-compose -f docker-compose.jenkins.yml up -d
+#   open http://localhost:8080
+#   Initial password: docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+#
+# Setup steps:
+#   1. Install suggested plugins
+#   2. New Item → Pipeline → "travel-booking-pipeline"
+#   3. Pipeline → Definition: "Pipeline script from SCM"
+#   4. SCM: Git → Repository URL: https://github.com/HuseynliIlqar/taking-care-of-business
+#   5. Script Path: travel-booking/Jenkinsfile
+#   6. Save → Build Now
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    networks:
+      - jenkins-network
+
+volumes:
+  jenkins_home:
+    driver: local
+
+networks:
+  jenkins-network:
+    driver: bridge

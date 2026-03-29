@@ -1,0 +1,166 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1 — Build & Test
+  # ─────────────────────────────────────────────
+  build-and-test:
+    name: Build, Test & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build (skip tests)
+        working-directory: travel-booking
+        run: mvn clean package -DskipTests
+
+      - name: Run tests + JaCoCo coverage
+        working-directory: travel-booking
+        run: mvn test jacoco:report
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: JUnit Tests
+          path: travel-booking/**/target/surefire-reports/*.xml
+          reporter: java-junit
+
+      - name: Upload coverage to CodeCov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: travel-booking
+          fail_ci_if_error: false
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — Docker Build (her push-da)
+  # ─────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build JARs
+        working-directory: travel-booking
+        run: mvn clean package -DskipTests
+
+      - name: Build Docker images
+        working-directory: travel-booking
+        run: |
+          docker build -t travel-booking/discovery-service:${{ github.sha }}  ./discovery-service
+          docker build -t travel-booking/api-gateway:${{ github.sha }}         ./api-gateway
+          docker build -t travel-booking/flight-service:${{ github.sha }}      ./flight-service
+          docker build -t travel-booking/hotel-service:${{ github.sha }}       ./hotel-service
+          docker build -t travel-booking/car-rental-service:${{ github.sha }}  ./car-rental-service
+
+  # ─────────────────────────────────────────────
+  # JOB 3 — Deploy to Heroku (yalnız main branch)
+  # ─────────────────────────────────────────────
+  deploy:
+    name: Deploy to Heroku
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build JARs
+        working-directory: travel-booking
+        run: mvn clean package -DskipTests
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container Registry
+        run: heroku container:login
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
+      - name: Set Heroku config vars
+        run: |
+          heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app flight-service
+          heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app hotel-service
+          heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app car-rental-service
+          heroku config:set EUREKA_DEFAULT_ZONE=https://discoveryservice.herokuapp.com/eureka/ --app api-gateway
+          heroku config:set SPRING_PROFILES_ACTIVE=heroku --app api-gateway
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
+      - name: Build & Push Docker images to Heroku Registry
+        working-directory: travel-booking
+        run: |
+          docker build -t registry.heroku.com/discoveryservice/web   ./discovery-service
+          docker build -t registry.heroku.com/api-gateway/web        ./api-gateway
+          docker build -t registry.heroku.com/flight-service/web     ./flight-service
+          docker build -t registry.heroku.com/hotel-service/web      ./hotel-service
+          docker build -t registry.heroku.com/car-rental-service/web ./car-rental-service
+
+          docker push registry.heroku.com/discoveryservice/web
+          docker push registry.heroku.com/api-gateway/web
+          docker push registry.heroku.com/flight-service/web
+          docker push registry.heroku.com/hotel-service/web
+          docker push registry.heroku.com/car-rental-service/web
+
+      - name: Release apps on Heroku
+        run: |
+          heroku container:release web --app discoveryservice
+          heroku container:release web --app api-gateway
+          heroku container:release web --app flight-service
+          heroku container:release web --app hotel-service
+          heroku container:release web --app car-rental-service
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
